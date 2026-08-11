@@ -1,0 +1,20 @@
+{
+  "dataset": "Kaggle Fake and Real News Dataset",
+  "samples": 44898,
+  "train_samples": 35918,
+  "test_samples": 8980,
+  "accuracy": 0.9897550111358575,
+  "precision": 0.9898113027307835,
+  "recall": 0.9897550111358575,
+  "f1": 0.9897571536305938,
+  "confusion_matrix": [
+    [
+      4627,
+      69
+    ],
+    [
+      23,
+      4261
+    ]
+  ]
+}
