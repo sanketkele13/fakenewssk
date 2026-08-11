@@ -24,8 +24,6 @@ import {
 
 import { Button } from '@/components/ui/button'
 
-const sampleArticle = `Scientists have developed a new solar panel material that can generate electricity from indoor light, potentially transforming how everyday devices are powered. Researchers say early tests show the material is more efficient in low-light environments than existing panels.`
-
 const historyItems = [
   { title: 'Solar panel breakthrough', result: 'REAL', score: '94.2%', time: '2 min ago' },
   { title: 'Celebrity endorses miracle cure', result: 'FAKE', score: '98.7%', time: '18 min ago' },
@@ -36,6 +34,9 @@ export function FakeNewsDashboard() {
   const [article, setArticle] = useState('')
   const [prediction, setPrediction] = useState<'REAL' | 'FAKE' | null>(null)
   const [mobileNav, setMobileNav] = useState(false)
+  const [sampleLoading, setSampleLoading] = useState(false)
+  const [sampleStatus, setSampleStatus] = useState('')
+  const [sampleCount, setSampleCount] = useState(0)
 
   const wordCount = article.trim() ? article.trim().split(/\s+/).length : 0
   const readingTime = Math.max(1, Math.ceil(wordCount / 220))
@@ -52,6 +53,28 @@ export function FakeNewsDashboard() {
     const suspiciousTerms = ['shocking', 'secret', 'miracle', 'they don\'t want', '100%', 'share now', 'breaking']
     const suspiciousCount = suspiciousTerms.filter((term) => lower.includes(term)).length
     setPrediction(suspiciousCount > 0 || wordCount < 18 ? 'FAKE' : 'REAL')
+  }
+
+  async function tryLiveSample() {
+    setSampleLoading(true)
+    setSampleStatus('Searching Google for a new Indian politics article...')
+    try {
+      const response = await fetch('/api/news/sample', { cache: 'no-store' })
+      const data = await response.json() as { title?: string; snippet?: string; sourceUrl?: string; storedCount?: number; error?: string }
+      if (!response.ok || !data.title) throw new Error(data.error ?? 'No new article found')
+      const nextArticle = `${data.title}. ${data.snippet ?? ''}`
+      setArticle(nextArticle)
+      setPrediction(null)
+      setSampleCount(data.storedCount ?? sampleCount + 1)
+      setSampleStatus(`Fresh result loaded${data.sourceUrl ? ` · ${new URL(data.sourceUrl).hostname}` : ''}`)
+      const lower = nextArticle.toLowerCase()
+      const suspiciousTerms = ['shocking', 'secret', 'miracle', 'they don\'t want', '100%', 'share now', 'breaking']
+      setPrediction(suspiciousTerms.some((term) => lower.includes(term)) || nextArticle.trim().split(/\s+/).length < 18 ? 'FAKE' : 'REAL')
+    } catch (error) {
+      setSampleStatus(error instanceof Error ? error.message : 'Unable to load a new sample')
+    } finally {
+      setSampleLoading(false)
+    }
   }
 
   return (
@@ -96,7 +119,8 @@ export function FakeNewsDashboard() {
             <div className="flex items-center justify-between border-b border-border px-5 py-4"><div className="flex items-center gap-3"><div className="flex size-8 items-center justify-center rounded-md bg-secondary"><FileText className="size-4 text-primary" /></div><div><h2 id="analyzer-title" className="text-sm font-semibold">Article analyzer</h2><p className="text-xs text-muted-foreground">Input text for classification</p></div></div><span className="font-mono text-[10px] text-muted-foreground">TEXT / 01</span></div>
             <div className="p-5">
               <textarea value={article} onChange={(event) => { setArticle(event.target.value); setPrediction(null) }} placeholder="Paste a news headline, article, or claim here..." className="min-h-64 w-full resize-y rounded-lg border border-input bg-background px-4 py-3 font-sans text-sm leading-6 outline-none transition-colors placeholder:text-muted-foreground focus:border-primary focus:ring-2 focus:ring-ring/30" aria-label="News article text" />
-              <div className="flex flex-col justify-between gap-4 pt-4 sm:flex-row sm:items-center"><div className="flex gap-4 font-mono text-[11px] text-muted-foreground"><span>{wordCount} words</span><span>~{readingTime} min read</span></div><div className="flex gap-2"><Button variant="outline" onClick={() => setArticle(sampleArticle)}><Sparkles data-icon="inline-start" /> Try sample</Button><Button onClick={analyzeArticle} disabled={!article.trim()}><ScanSearch data-icon="inline-start" /> Analyze article</Button></div></div>
+              <div className="flex flex-col justify-between gap-4 pt-4 sm:flex-row sm:items-center"><div className="flex gap-4 font-mono text-[11px] text-muted-foreground"><span>{wordCount} words</span><span>~{readingTime} min read</span></div><div className="flex gap-2"><Button variant="outline" onClick={tryLiveSample} disabled={sampleLoading}><Sparkles data-icon="inline-start" /> {sampleLoading ? 'Finding...' : 'Try sample'}</Button><Button onClick={analyzeArticle} disabled={!article.trim()}><ScanSearch data-icon="inline-start" /> Analyze article</Button></div></div>
+              <div className="mt-3 flex flex-wrap items-center justify-between gap-2 text-[11px] text-muted-foreground"><span role="status">{sampleStatus || 'Google Custom Search · Indian politics · no repeats'}</span><span className="font-mono">{sampleCount.toLocaleString()} / 10,000 stored</span></div>
             </div>
           </section>
 
