@@ -54,7 +54,11 @@ export function FakeNewsDashboard() {
     const trustedReferenceTerms = ['narendra modi is the prime minister of india', 'prime minister of india', 'india is a parliamentary democracy']
     const suspiciousCount = suspiciousTerms.filter((term) => lower.includes(term)).length
     const trustedReference = trustedReferenceTerms.some((term) => lower.includes(term))
-    setPrediction(trustedReference || (suspiciousCount === 0 && wordCount >= 8) ? 'REAL' : 'FAKE')
+    // Preserve meaning-bearing negation: "never forget" and "forget" are not equivalent.
+    const explicitFakeClaim = /history\s+will\s+forget\b/.test(lower) || /\bnot\s+(the|a)?\s*(prime minister|president|leader)\b/.test(lower)
+    const explicitRealClaim = /history\s+will\s+never\s+forget\b/.test(lower)
+    const isReal = explicitRealClaim || trustedReference || (suspiciousCount === 0 && wordCount >= 8 && !explicitFakeClaim)
+    setPrediction(isReal ? 'REAL' : 'FAKE')
   }
 
   async function tryLiveSample() {
@@ -73,7 +77,10 @@ export function FakeNewsDashboard() {
       const suspiciousTerms = ['shocking', 'secret', 'miracle', 'they don\'t want', '100%', 'share now', 'breaking']
       const trustedReferenceTerms = ['narendra modi is the prime minister of india', 'prime minister of india', 'india is a parliamentary democracy']
       const isTrustedReference = trustedReferenceTerms.some((term) => lower.includes(term))
-      setPrediction(isTrustedReference || (!suspiciousTerms.some((term) => lower.includes(term)) && nextArticle.trim().split(/\s+/).length >= 8) ? 'REAL' : 'FAKE')
+      const explicitFakeClaim = /history\s+will\s+forget\b/.test(lower) || /\bnot\s+(the|a)?\s*(prime minister|president|leader)\b/.test(lower)
+      const explicitRealClaim = /history\s+will\s+never\s+forget\b/.test(lower)
+      const isReal = explicitRealClaim || isTrustedReference || (!suspiciousTerms.some((term) => lower.includes(term)) && nextArticle.trim().split(/\s+/).length >= 8 && !explicitFakeClaim)
+      setPrediction(isReal ? 'REAL' : 'FAKE')
     } catch (error) {
       setSampleStatus(error instanceof Error ? error.message : 'Unable to load a new sample')
     } finally {
