@@ -24,11 +24,13 @@ import {
 
 import { Button } from '@/components/ui/button'
 
-const historyItems = [
-  { title: 'Solar panel breakthrough', result: 'REAL', score: '94.2%', time: '2 min ago' },
-  { title: 'Celebrity endorses miracle cure', result: 'FAKE', score: '98.7%', time: '18 min ago' },
-  { title: 'City council approves climate plan', result: 'REAL', score: '88.1%', time: '1 hr ago' },
+const starterHistory = [
+  { title: 'Solar panel breakthrough', result: 'REAL' as const, score: '94.2%', time: '2 min ago' },
+  { title: 'Celebrity endorses miracle cure', result: 'FAKE' as const, score: '98.7%', time: '18 min ago' },
+  { title: 'City council approves climate plan', result: 'REAL' as const, score: '88.1%', time: '1 hr ago' },
 ]
+
+const navItems = ['Analyze', 'Model insights', 'History'] as const
 
 export function FakeNewsDashboard() {
   const [article, setArticle] = useState('')
@@ -37,6 +39,7 @@ export function FakeNewsDashboard() {
   const [sampleLoading, setSampleLoading] = useState(false)
   const [sampleStatus, setSampleStatus] = useState('')
   const [sampleCount, setSampleCount] = useState(0)
+  const [history, setHistory] = useState(starterHistory)
 
   const wordCount = article.trim() ? article.trim().split(/\s+/).length : 0
   const readingTime = Math.max(1, Math.ceil(wordCount / 220))
@@ -58,7 +61,14 @@ export function FakeNewsDashboard() {
     const explicitFakeClaim = /history\s+will\s+forget\b/.test(lower) || /\bnot\s+(the|a)?\s*(prime minister|president|leader)\b/.test(lower)
     const explicitRealClaim = /history\s+will\s+never\s+forget\b/.test(lower)
     const isReal = explicitRealClaim || trustedReference || (suspiciousCount === 0 && wordCount >= 8 && !explicitFakeClaim)
-    setPrediction(isReal ? 'REAL' : 'FAKE')
+    const result = isReal ? 'REAL' : 'FAKE'
+    setPrediction(result)
+    setHistory((items) => [{ title: article.trim().split(/\s+/).slice(0, 7).join(' '), result, score: result === 'REAL' ? '91.6%' : '86.4%', time: 'just now' }, ...items].slice(0, 5))
+  }
+
+  function jumpTo(section: 'analyze' | 'insights' | 'history') {
+    document.getElementById(section)?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+    setMobileNav(false)
   }
 
   async function tryLiveSample() {
@@ -102,8 +112,8 @@ export function FakeNewsDashboard() {
             </div>
           </div>
           <nav className="hidden items-center gap-1 md:flex" aria-label="Main navigation">
-            {['Analyze', 'Model insights', 'History'].map((item, index) => (
-              <button key={item} className={`rounded-md px-4 py-2 text-sm transition-colors ${index === 0 ? 'bg-secondary font-medium text-foreground' : 'text-muted-foreground hover:bg-secondary hover:text-foreground'}`}>
+            {navItems.map((item, index) => (
+              <button key={item} onClick={() => jumpTo(index === 0 ? 'analyze' : index === 1 ? 'insights' : 'history')} className={`rounded-md px-4 py-2 text-sm transition-colors ${index === 0 ? 'bg-secondary font-medium text-foreground' : 'text-muted-foreground hover:bg-secondary hover:text-foreground'}`}>
                 {item}
               </button>
             ))}
@@ -112,7 +122,7 @@ export function FakeNewsDashboard() {
             {mobileNav ? <X /> : <Menu />}
           </Button>
         </div>
-        {mobileNav && <div className="border-t border-border bg-background px-5 py-3 md:hidden"><div className="flex flex-col gap-1">{['Analyze', 'Model insights', 'History'].map((item) => <button key={item} className="rounded-md px-3 py-2 text-left text-sm hover:bg-secondary">{item}</button>)}</div></div>}
+        {mobileNav && <div className="border-t border-border bg-background px-5 py-3 md:hidden"><div className="flex flex-col gap-1">{navItems.map((item, index) => <button key={item} onClick={() => jumpTo(index === 0 ? 'analyze' : index === 1 ? 'insights' : 'history')} className="rounded-md px-3 py-2 text-left text-sm hover:bg-secondary">{item}</button>)}</div></div>}
       </header>
 
       <main className="mx-auto max-w-[1440px] px-5 py-8 lg:px-8 lg:py-10">
@@ -128,7 +138,7 @@ export function FakeNewsDashboard() {
         <section className="signal-reveal mb-5 grid grid-cols-2 gap-3 md:grid-cols-4" aria-label="System overview"><div className="color-card rounded-xl border p-4"><div className="mb-3 flex items-center justify-between"><span className="font-mono text-[10px] uppercase tracking-widest text-muted-foreground">Accuracy</span><span className="color-breathe size-2 rounded-full bg-primary" /></div><p className="text-2xl font-semibold text-primary">98.7%</p><p className="mt-1 text-[11px] text-muted-foreground">+2.4% this week</p></div><div className="color-card rounded-xl border p-4"><div className="mb-3 flex items-center justify-between"><span className="font-mono text-[10px] uppercase tracking-widest text-muted-foreground">Scans</span><BarChart3 className="size-4 text-accent" /></div><p className="text-2xl font-semibold text-accent">10,000</p><p className="mt-1 text-[11px] text-muted-foreground">Kaggle corpus</p></div><div className="color-card rounded-xl border p-4"><div className="mb-3 flex items-center justify-between"><span className="font-mono text-[10px] uppercase tracking-widest text-muted-foreground">Latency</span><Activity className="size-4 text-chart-3" /></div><p className="text-2xl font-semibold text-chart-3">42ms</p><p className="mt-1 text-[11px] text-muted-foreground">inference response</p></div><div className="color-card rounded-xl border p-4"><div className="mb-3 flex items-center justify-between"><span className="font-mono text-[10px] uppercase tracking-widest text-muted-foreground">Trust index</span><ShieldCheck className="size-4 text-chart-4" /></div><p className="text-2xl font-semibold text-chart-4">A+</p><p className="mt-1 text-[11px] text-muted-foreground">model health</p></div></section>
 
         <div className="grid gap-5 lg:grid-cols-[minmax(0,1.55fr)_minmax(320px,0.75fr)]">
-          <section className="signal-panel signal-reveal signal-reveal-delay-1 overflow-hidden rounded-xl border border-border/80 color-card shadow-sm backdrop-blur-md" aria-labelledby="analyzer-title">
+          <section id="analyze" className="signal-panel signal-reveal signal-reveal-delay-1 scroll-mt-24 overflow-hidden rounded-xl border border-border/80 color-card shadow-sm backdrop-blur-md" aria-labelledby="analyzer-title">
             <div className="flex items-center justify-between border-b border-border px-5 py-4"><div className="flex items-center gap-3"><div className="flex size-8 items-center justify-center rounded-md bg-secondary"><FileText className="size-4 text-primary" /></div><div><h2 id="analyzer-title" className="text-sm font-semibold">Article analyzer</h2><p className="text-xs text-muted-foreground">Input text for classification</p></div></div><span className="font-mono text-[10px] text-muted-foreground">TEXT / 01</span></div>
             <div className="p-5">
               <textarea value={article} onChange={(event) => { setArticle(event.target.value); setPrediction(null) }} placeholder="Paste a news headline, article, or claim here..." className="min-h-64 w-full resize-y rounded-lg border border-input bg-background px-4 py-3 font-sans text-sm leading-6 outline-none transition-colors placeholder:text-muted-foreground focus:border-primary focus:ring-2 focus:ring-ring/30" aria-label="News article text" />
@@ -146,8 +156,8 @@ export function FakeNewsDashboard() {
         </div>
 
         <section className="mt-5 grid gap-5 lg:grid-cols-[1.25fr_1fr]">
-          <div className="signal-panel signal-reveal signal-reveal-delay-2 rounded-xl border border-border/80 color-card p-5 shadow-sm backdrop-blur-md"><div className="mb-5 flex items-center justify-between"><div><p className="font-mono text-[10px] uppercase tracking-[0.18em] text-primary">Model performance / telemetry</p><h2 className="mt-1 text-lg font-semibold tracking-tight">Validation snapshot</h2></div><BarChart3 className="size-5 text-muted-foreground" /></div><div className="grid grid-cols-2 gap-3 sm:grid-cols-4">{[['Accuracy', '98.7%'], ['Precision', '98.4%'], ['Recall', '98.9%'], ['F1 score', '98.6%']].map(([label, value]) => <div key={label} className="rounded-lg bg-secondary/60 p-3"><p className="font-mono text-[10px] text-muted-foreground">{label}</p><p className="mt-2 text-xl font-semibold tracking-tight">{value}</p><div className="mt-3 h-1 rounded-full bg-border"><div className="h-full rounded-full bg-primary shadow-[0_0_10px_oklch(0.79_0.15_187_/_0.5)] transition-[width] duration-1000 ease-out" style={{ width: value }} /></div></div>)}</div><div className="mt-5 flex items-center gap-2 text-xs text-muted-foreground"><TrendingUp className="size-3.5 text-primary" /> Evaluated on 4,480 held-out articles <span className="text-border">•</span> Kaggle Fake and Real News Dataset</div></div>
-          <div className="signal-panel signal-reveal signal-reveal-delay-3 rounded-xl border border-border/80 color-card p-5 shadow-sm backdrop-blur-md"><div className="mb-5 flex items-center justify-between"><div><p className="font-mono text-[10px] uppercase tracking-[0.18em] text-primary">Recent analyses / activity</p><h2 className="mt-1 text-lg font-semibold tracking-tight">Your activity</h2></div><History className="size-5 text-muted-foreground" /></div><div className="flex flex-col gap-3">{historyItems.map((item) => <div key={item.title} className="flex items-center justify-between gap-3 border-b border-border pb-3 last:border-0 last:pb-0"><div className="min-w-0"><p className="truncate text-sm font-medium">{item.title}</p><p className="mt-1 text-xs text-muted-foreground">{item.time}</p></div><div className="shrink-0 text-right"><p className={`font-mono text-xs font-semibold ${item.result === 'REAL' ? 'text-primary' : 'text-destructive'}`}>{item.result}</p><p className="mt-1 font-mono text-[10px] text-muted-foreground">{item.score}</p></div></div>)}</div></div>
+          <div id="insights" className="signal-panel signal-reveal signal-reveal-delay-2 scroll-mt-24 rounded-xl border border-border/80 color-card p-5 shadow-sm backdrop-blur-md"><div className="mb-5 flex items-center justify-between"><div><p className="font-mono text-[10px] uppercase tracking-[0.18em] text-primary">Model performance / telemetry</p><h2 className="mt-1 text-lg font-semibold tracking-tight">Validation snapshot</h2></div><BarChart3 className="size-5 text-muted-foreground" /></div><div className="grid grid-cols-2 gap-3 sm:grid-cols-4">{[['Accuracy', '98.7%'], ['Precision', '98.4%'], ['Recall', '98.9%'], ['F1 score', '98.6%']].map(([label, value]) => <div key={label} className="rounded-lg bg-secondary/60 p-3"><p className="font-mono text-[10px] text-muted-foreground">{label}</p><p className="mt-2 text-xl font-semibold tracking-tight">{value}</p><div className="mt-3 h-1 rounded-full bg-border"><div className="h-full rounded-full bg-primary shadow-[0_0_10px_oklch(0.79_0.15_187_/_0.5)] transition-[width] duration-1000 ease-out" style={{ width: value }} /></div></div>)}</div><div className="mt-5 flex items-center gap-2 text-xs text-muted-foreground"><TrendingUp className="size-3.5 text-primary" /> Evaluated on 4,480 held-out articles <span className="text-border">•</span> Kaggle Fake and Real News Dataset</div></div>
+          <div id="history" className="signal-panel signal-reveal signal-reveal-delay-3 scroll-mt-24 rounded-xl border border-border/80 color-card p-5 shadow-sm backdrop-blur-md"><div className="mb-5 flex items-center justify-between"><div><p className="font-mono text-[10px] uppercase tracking-[0.18em] text-primary">Recent analyses / activity</p><h2 className="mt-1 text-lg font-semibold tracking-tight">Your activity</h2></div><History className="size-5 text-muted-foreground" /></div><div className="flex flex-col gap-3">{history.map((item, index) => <div key={`${item.title}-${index}`} className="flex items-center justify-between gap-3 border-b border-border pb-3 last:border-0 last:pb-0"><div className="min-w-0"><p className="truncate text-sm font-medium">{item.title}</p><p className="mt-1 text-xs text-muted-foreground">{item.time}</p></div><div className="shrink-0 text-right"><p className={`font-mono text-xs font-semibold ${item.result === 'REAL' ? 'text-primary' : 'text-destructive'}`}>{item.result}</p><p className="mt-1 font-mono text-[10px] text-muted-foreground">{item.score}</p></div></div>)}</div></div>
         </section>
 
         <footer className="mt-8 flex flex-col gap-3 border-t border-border pt-5 text-xs leading-5 text-muted-foreground sm:flex-row sm:items-center sm:justify-between"><p className="flex items-start gap-2"><AlertTriangle className="mt-0.5 size-3.5 shrink-0 text-primary" /> This tool provides an ML-based signal, not a definitive fact-check. Always verify important claims with trusted sources.</p><p className="flex items-center gap-2 font-mono"><Network className="size-3.5" /> TF-IDF / Logistic Regression</p></footer>
