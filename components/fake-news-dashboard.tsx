@@ -1,6 +1,6 @@
 'use client'
 
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import {
   Activity,
   AlertTriangle,
@@ -23,6 +23,7 @@ import {
 } from 'lucide-react'
 
 import { Button } from '@/components/ui/button'
+import { getSupabase } from '@/lib/supabase'
 
 const starterHistory = [
   { title: 'Solar panel breakthrough', result: 'REAL' as const, score: '94.2%', time: '2 min ago' },
@@ -40,6 +41,21 @@ export function FakeNewsDashboard() {
   const [sampleStatus, setSampleStatus] = useState('')
   const [sampleCount, setSampleCount] = useState(0)
   const [history, setHistory] = useState(starterHistory)
+  const [historyReady, setHistoryReady] = useState(false)
+
+  useEffect(() => {
+    let active = true
+    async function loadHistory() {
+      const { data } = await getSupabase().from('analysis_history').select('id, article_text, prediction, confidence, created_at').order('created_at', { ascending: false }).limit(5)
+      if (!active) return
+      if (data?.length) {
+        setHistory(data.map((item) => ({ title: item.article_text.trim().split(/\s+/).slice(0, 7).join(' '), result: item.prediction as 'REAL' | 'FAKE', score: `${Number(item.confidence).toFixed(1)}%`, time: new Date(item.created_at).toLocaleString() })))
+      }
+      setHistoryReady(true)
+    }
+    loadHistory()
+    return () => { active = false }
+  }, [])
 
   const wordCount = article.trim() ? article.trim().split(/\s+/).length : 0
   const readingTime = Math.max(1, Math.ceil(wordCount / 220))
@@ -66,11 +82,14 @@ export function FakeNewsDashboard() {
     return { result: isReal ? 'REAL' as const : 'FAKE' as const, score: isReal ? '91.6%' : '94.8%' }
   }
 
-  function analyzeArticle() {
+  async function analyzeArticle() {
     if (!article.trim()) return
     const { result, score } = classifyArticle(article)
     setPrediction(result)
+    const confidence = Number.parseFloat(score)
     setHistory((items) => [{ title: article.trim().split(/\s+/).slice(0, 7).join(' '), result, score, time: 'just now' }, ...items].slice(0, 5))
+    const { error } = await getSupabase().from('analysis_history').insert({ article_text: article.trim(), prediction: result, confidence })
+    if (error) console.error('[v0] Could not save analysis history:', error.message)
   }
 
   function jumpTo(section: 'analyze' | 'insights' | 'history') {
@@ -157,7 +176,7 @@ export function FakeNewsDashboard() {
 
         <section className="mt-5 grid gap-5 lg:grid-cols-[1.25fr_1fr]">
           <div id="insights" className="signal-panel signal-reveal signal-reveal-delay-2 scroll-mt-24 rounded-xl border border-border/80 color-card p-5 shadow-sm backdrop-blur-md"><div className="mb-5 flex items-center justify-between"><div><p className="font-mono text-[10px] uppercase tracking-[0.18em] text-primary">Model performance / telemetry</p><h2 className="mt-1 text-lg font-semibold tracking-tight">Validation snapshot</h2></div><BarChart3 className="size-5 text-muted-foreground" /></div><div className="grid grid-cols-2 gap-3 sm:grid-cols-4">{[['Accuracy', '98.7%'], ['Precision', '98.4%'], ['Recall', '98.9%'], ['F1 score', '98.6%']].map(([label, value]) => <div key={label} className="rounded-lg bg-secondary/60 p-3"><p className="font-mono text-[10px] text-muted-foreground">{label}</p><p className="mt-2 text-xl font-semibold tracking-tight">{value}</p><div className="mt-3 h-1 rounded-full bg-border"><div className="h-full rounded-full bg-primary shadow-[0_0_10px_oklch(0.79_0.15_187_/_0.5)] transition-[width] duration-1000 ease-out" style={{ width: value }} /></div></div>)}</div><div className="mt-5 flex items-center gap-2 text-xs text-muted-foreground"><TrendingUp className="size-3.5 text-primary" /> Evaluated on 4,480 held-out articles <span className="text-border">•</span> Kaggle Fake and Real News Dataset</div></div>
-          <div id="history" className="signal-panel signal-reveal signal-reveal-delay-3 scroll-mt-24 rounded-xl border border-border/80 color-card p-5 shadow-sm backdrop-blur-md"><div className="mb-5 flex items-center justify-between"><div><p className="font-mono text-[10px] uppercase tracking-[0.18em] text-primary">Recent analyses / activity</p><h2 className="mt-1 text-lg font-semibold tracking-tight">Your activity</h2></div><History className="size-5 text-muted-foreground" /></div><div className="flex flex-col gap-3">{history.map((item, index) => <div key={`${item.title}-${index}`} className="flex items-center justify-between gap-3 border-b border-border pb-3 last:border-0 last:pb-0"><div className="min-w-0"><p className="truncate text-sm font-medium">{item.title}</p><p className="mt-1 text-xs text-muted-foreground">{item.time}</p></div><div className="shrink-0 text-right"><p className={`font-mono text-xs font-semibold ${item.result === 'REAL' ? 'text-primary' : 'text-destructive'}`}>{item.result}</p><p className="mt-1 font-mono text-[10px] text-muted-foreground">{item.score}</p></div></div>)}</div></div>
+          <div id="history" className="signal-panel signal-reveal signal-reveal-delay-3 scroll-mt-24 rounded-xl border border-border/80 color-card p-5 shadow-sm backdrop-blur-md"><div className="mb-5 flex items-center justify-between"><div><p className="font-mono text-[10px] uppercase tracking-[0.18em] text-primary">Recent analyses / activity</p><h2 className="mt-1 text-lg font-semibold tracking-tight">Your activity</h2><p className="mt-1 text-[11px] text-muted-foreground">{historyReady ? 'Synced with Supabase' : 'Loading saved analyses...'}</p></div><History className="size-5 text-muted-foreground" /></div><div className="flex flex-col gap-3">{history.map((item, index) => <div key={`${item.title}-${index}`} className="flex items-center justify-between gap-3 border-b border-border pb-3 last:border-0 last:pb-0"><div className="min-w-0"><p className="truncate text-sm font-medium">{item.title}</p><p className="mt-1 text-xs text-muted-foreground">{item.time}</p></div><div className="shrink-0 text-right"><p className={`font-mono text-xs font-semibold ${item.result === 'REAL' ? 'text-primary' : 'text-destructive'}`}>{item.result}</p><p className="mt-1 font-mono text-[10px] text-muted-foreground">{item.score}</p></div></div>)}</div></div>
         </section>
 
         <footer className="mt-8 flex flex-col gap-3 border-t border-border pt-5 text-xs leading-5 text-muted-foreground sm:flex-row sm:items-center sm:justify-between"><p className="flex items-start gap-2"><AlertTriangle className="mt-0.5 size-3.5 shrink-0 text-primary" /> This tool provides an ML-based signal, not a definitive fact-check. Always verify important claims with trusted sources.</p><p className="flex items-center gap-2 font-mono"><Network className="size-3.5" /> TF-IDF / Logistic Regression</p></footer>
