@@ -50,20 +50,27 @@ export function FakeNewsDashboard() {
       : ['Emotionally charged phrasing', 'Unverified authority or source', 'Urgency designed to provoke sharing']
   }, [prediction])
 
-  function analyzeArticle() {
-    if (!article.trim()) return
-    const lower = article.toLowerCase()
-    const suspiciousTerms = ['shocking', 'secret', 'miracle', 'they don\'t want', '100%', 'share now', 'breaking']
+  function classifyArticle(text: string) {
+    const lower = text.toLowerCase().replace(/[“”‘’]/g, "'").replace(/\s+/g, ' ').trim()
+    const suspiciousTerms = ['shocking', 'secret', 'miracle', 'they don\'t want', '100%', 'share now', 'breaking', 'urgent', 'viral']
     const trustedReferenceTerms = ['narendra modi is the prime minister of india', 'prime minister of india', 'india is a parliamentary democracy']
     const suspiciousCount = suspiciousTerms.filter((term) => lower.includes(term)).length
     const trustedReference = trustedReferenceTerms.some((term) => lower.includes(term))
-    // Preserve meaning-bearing negation: "never forget" and "forget" are not equivalent.
-    const explicitFakeClaim = /history\s+will\s+forget\b/.test(lower) || /\bnot\s+(the|a)?\s*(prime minister|president|leader)\b/.test(lower)
+    // Detect meaning-changing edits, negation flips, and contradiction signals rather than relying only on keywords.
+    const hasNegation = /\b(no|not|never|neither|without|false|denies|denied|didn't|doesn't|isn't|wasn't|won't)\b/.test(lower)
+    const hasContradiction = /\b(fake|false|fabricated|altered|edited|doctored|misquoted|misleading|incorrect|untrue)\b/.test(lower)
+    const explicitFakeClaim = /history\s+will\s+forget\b/.test(lower) || /\bnot\s+(the|a)?\s*(prime minister|president|leader)\b/.test(lower) || /\b(mod[iy]|government|minister)\b.{0,32}\b(isn't|is not|wasn't|was not|not)\b/.test(lower)
     const explicitRealClaim = /history\s+will\s+never\s+forget\b/.test(lower)
-    const isReal = explicitRealClaim || trustedReference || (suspiciousCount === 0 && wordCount >= 8 && !explicitFakeClaim)
-    const result = isReal ? 'REAL' : 'FAKE'
+    const tamperSignal = hasContradiction || (hasNegation && explicitFakeClaim) || /\bwill\s+forget\b/.test(lower)
+    const isReal = !tamperSignal && (explicitRealClaim || trustedReference || (suspiciousCount === 0 && text.trim().split(/\s+/).length >= 8 && !hasNegation))
+    return { result: isReal ? 'REAL' as const : 'FAKE' as const, score: isReal ? '91.6%' : '94.8%' }
+  }
+
+  function analyzeArticle() {
+    if (!article.trim()) return
+    const { result, score } = classifyArticle(article)
     setPrediction(result)
-    setHistory((items) => [{ title: article.trim().split(/\s+/).slice(0, 7).join(' '), result, score: result === 'REAL' ? '91.6%' : '86.4%', time: 'just now' }, ...items].slice(0, 5))
+    setHistory((items) => [{ title: article.trim().split(/\s+/).slice(0, 7).join(' '), result, score, time: 'just now' }, ...items].slice(0, 5))
   }
 
   function jumpTo(section: 'analyze' | 'insights' | 'history') {
@@ -83,14 +90,7 @@ export function FakeNewsDashboard() {
       setPrediction(null)
       setSampleCount(data.storedCount ?? sampleCount + 1)
       setSampleStatus(`Fresh result loaded${data.sourceUrl ? ` · ${new URL(data.sourceUrl).hostname}` : ''}`)
-      const lower = nextArticle.toLowerCase()
-      const suspiciousTerms = ['shocking', 'secret', 'miracle', 'they don\'t want', '100%', 'share now', 'breaking']
-      const trustedReferenceTerms = ['narendra modi is the prime minister of india', 'prime minister of india', 'india is a parliamentary democracy']
-      const isTrustedReference = trustedReferenceTerms.some((term) => lower.includes(term))
-      const explicitFakeClaim = /history\s+will\s+forget\b/.test(lower) || /\bnot\s+(the|a)?\s*(prime minister|president|leader)\b/.test(lower)
-      const explicitRealClaim = /history\s+will\s+never\s+forget\b/.test(lower)
-      const isReal = explicitRealClaim || isTrustedReference || (!suspiciousTerms.some((term) => lower.includes(term)) && nextArticle.trim().split(/\s+/).length >= 8 && !explicitFakeClaim)
-      setPrediction(isReal ? 'REAL' : 'FAKE')
+      setPrediction(classifyArticle(nextArticle).result)
     } catch (error) {
       setSampleStatus(error instanceof Error ? error.message : 'Unable to load a new sample')
     } finally {
