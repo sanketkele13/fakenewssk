@@ -74,10 +74,13 @@ async function fetchRssItems() {
 }
 
 export async function GET() {
+  const corpus = await db.execute(sql`select title, snippet, source_url, published_at from sampled_news order by created_at desc limit 1`)
+  const row = corpus.rows[0] as { title: string; snippet: string; source_url: string; published_at: string | null } | undefined
+  if (row) return NextResponse.json({ title: row.title, snippet: row.snippet, sourceUrl: row.source_url, publishedAt: row.published_at, storedCount: Number((await db.execute(sql`select count(*)::int as count from sampled_news`)).rows[0]?.count ?? 0) })
   const sources = [await fetchGoogleItems(), await fetchRssItems(), fallbackClaims.map((item) => ({ ...item, link: item.sourceUrl }))]
   for (const items of sources) {
     const saved = await saveFirstNew(items)
     if (saved) return NextResponse.json(saved)
   }
-  return NextResponse.json({ error: 'No new article found. All available samples have already been used.' }, { status: 404 })
+  return NextResponse.json({ error: 'No news available yet. Run the daily sync.' }, { status: 404 })
 }
